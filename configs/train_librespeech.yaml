@@ -1,0 +1,94 @@
+# MossFormer2 Training Configuration for LibreSpeech Dataset
+# 用于从 prepare_librespeech_data.py 准备的数据集进行训练
+
+# Seed for reproducibility
+seed: 1234
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+
+# Dataset type: 'csv' for LibreSpeech, 'standard' for WSJ0-2mix/Libri2Mix
+dataset_type: csv
+
+# Data paths
+data_root: dataset/prepared  # 准备好的数据集根目录
+csv_file: metadata.csv       # CSV 元数据文件
+output_folder: !ref results/mossformer2_librespeech/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+# Dataset info
+num_spks: 2  # 说话人数量
+
+# Training parameters (from paper Section 3.2)
+N_epochs: 200
+batch_size: 1  # Paper uses batch_size=1
+lr: 0.000015  # 15e-5 as specified in paper
+gradient_clip: 5.0  # L2 norm clipping at 5
+lr_decay_epoch: 85  # Keep constant for 85 epochs, then decay
+lr_decay_factor: 0.5  # Decay by factor of 0.5
+
+# Data loader
+num_workers: 4
+train_dataloader_opts:
+    batch_size: !ref <batch_size>
+    num_workers: !ref <num_workers>
+    shuffle: True
+    drop_last: True
+
+valid_dataloader_opts:
+    batch_size: 1
+    num_workers: !ref <num_workers>
+
+test_dataloader_opts:
+    batch_size: 1
+    num_workers: !ref <num_workers>
+
+# Audio parameters
+sample_rate: 16000  # LibreSpeech 使用 16kHz
+segment_length: 4.0  # 4 seconds segments
+segment: !ref <segment_length> * <sample_rate>
+
+# Model parameters (Table 1 from paper - Full MossFormer2)
+# MossFormer2: R=24, N=512, K=16, N'=256, L=2, Para=55.7M
+encoder_kernel_size: 16  # K
+encoder_embedding_dim: 512  # N (encoder output channels)
+encoder_in_nchannels: 1
+
+mossformer_sequence_dim: 512  # Same as N for this model
+num_mossformer_layer: 24  # R (number of repeated blocks)
+
+# Recurrent module parameters
+recurrent_bottleneck_dim: 256  # N' (reduced dimension)
+recurrent_fsmn_layers: 2  # L (number of FSMN layers)
+
+# MaskNet parameters
+masknet_chunksize: 250  # Group size for attention
+masknet_norm: ln
+masknet_use_global_pos_enc: True
+masknet_skip_around_intra: True
+
+# Loss function: SI-SDR (Scale-Invariant SDR)
+loss_type: si-sdr
+
+# Optimizer: Adam (from paper Section 3.2)
+optimizer: !name:torch.optim.Adam
+    lr: !ref <lr>
+    weight_decay: 0
+
+# Model architecture
+model: !new:mossformer2.MossFormer2_SS_16K
+    args: !applyutils:argparse.Namespace
+        encoder_embedding_dim: !ref <encoder_embedding_dim>
+        mossformer_sequence_dim: !ref <mossformer_sequence_dim>
+        num_mossformer_layer: !ref <num_mossformer_layer>
+        encoder_kernel_size: !ref <encoder_kernel_size>
+        num_spks: !ref <num_spks>
+
+# Training progress tracking
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+# Comment: For scaled-down version (MossFormer2-S from Table 1):
+# num_mossformer_layer: 25
+# encoder_embedding_dim: 384
+# mossformer_sequence_dim: 384
+# This gives 37.8M parameters

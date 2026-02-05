@@ -1,0 +1,33 @@
+# MossFormer2 Training Requirements
+# Based on the paper training setup
+
+# Core dependencies
+torch>=1.10.0
+torchaudio>=0.10.0
+torchinfo>=1.7.0
+
+# For rotary embeddings (used in MossFormer2 blocks)
+rotary-embedding-torch>=0.2.0
+
+# For einops operations
+einops>=0.6.0
+
+# Data processing
+numpy>=1.21.0
+scipy>=1.7.0
+soundfile>=0.11.0
+
+# Training utilities
+pyyaml>=6.0
+tensorboard>=2.11.0
+tqdm>=4.62.0
+
+# Optional: SpeechBrain (if you want to use their framework)
+# speechbrain>=0.5.14
+
+# Optional: For better data augmentation
+# torch-audiomentations>=0.11.0
+
+# Evaluation metrics
+# pesq>=0.0.4
+# pystoi>=0.3.3
