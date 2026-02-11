@@ -3,7 +3,6 @@
 
 # Seed for reproducibility
 seed: 1234
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Dataset type: 'csv' for LibreSpeech, 'standard' for WSJ0-2mix/Libri2Mix
 dataset_type: csv
@@ -11,41 +10,41 @@ dataset_type: csv
 # Data paths
 data_root: dataset/prepared  # 准备好的数据集根目录
 csv_file: metadata.csv       # CSV 元数据文件
-output_folder: !ref results/mossformer2_librespeech/<seed>
-save_folder: !ref <output_folder>/save
-train_log: !ref <output_folder>/train_log.txt
+output_folder: results/mossformer2_librespeech/20251118
+save_folder: results/mossformer2_librespeech/20251118/save
+train_log: results/mossformer2_librespeech/20251118/train_log.txt
 
 # Dataset info
 num_spks: 2  # 说话人数量
 
 # Training parameters (from paper Section 3.2)
-N_epochs: 200
+N_epochs: 40
 batch_size: 1  # Paper uses batch_size=1
-lr: 0.000015  # 15e-5 as specified in paper
+lr: 0.00015  # 15e-5 as specified in paper
 gradient_clip: 5.0  # L2 norm clipping at 5
-lr_decay_epoch: 85  # Keep constant for 85 epochs, then decay
-lr_decay_factor: 0.5  # Decay by factor of 0.5
+lr_decay_epoch: 20  # Keep constant for 200 epochs, then decay
+lr_decay_factor: 0.95  # Decay by factor of 0.8
 
 # Data loader
 num_workers: 4
 train_dataloader_opts:
-    batch_size: !ref <batch_size>
-    num_workers: !ref <num_workers>
+    batch_size: 1
+    num_workers: 4
     shuffle: True
     drop_last: True
 
 valid_dataloader_opts:
     batch_size: 1
-    num_workers: !ref <num_workers>
+    num_workers: 4
 
 test_dataloader_opts:
     batch_size: 1
-    num_workers: !ref <num_workers>
+    num_workers: 4
 
 # Audio parameters
 sample_rate: 16000  # LibreSpeech 使用 16kHz
-segment_length: 4.0  # 4 seconds segments
-segment: !ref <segment_length> * <sample_rate>
+segment_length: 2.0  # 4 seconds segments
+segment: 32000  # segment_length * sample_rate = 4.0 * 16000
 
 # Model parameters (Table 1 from paper - Full MossFormer2)
 # MossFormer2: R=24, N=512, K=16, N'=256, L=2, Para=55.7M
@@ -69,23 +68,15 @@ masknet_skip_around_intra: True
 # Loss function: SI-SDR (Scale-Invariant SDR)
 loss_type: si-sdr
 
-# Optimizer: Adam (from paper Section 3.2)
-optimizer: !name:torch.optim.Adam
-    lr: !ref <lr>
-    weight_decay: 0
+# Distributed training
+# Use with: torchrun --nproc_per_node=NUM_GPUS train.py --config configs/train_librespeech.yaml --distributed
+distributed:
+  backend: nccl  # nccl for GPU, gloo for CPU
 
-# Model architecture
-model: !new:mossformer2.MossFormer2_SS_16K
-    args: !applyutils:argparse.Namespace
-        encoder_embedding_dim: !ref <encoder_embedding_dim>
-        mossformer_sequence_dim: !ref <mossformer_sequence_dim>
-        num_mossformer_layer: !ref <num_mossformer_layer>
-        encoder_kernel_size: !ref <encoder_kernel_size>
-        num_spks: !ref <num_spks>
-
-# Training progress tracking
-train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
-    save_file: !ref <train_log>
+# Note: Optimizer and model are created in train.py code directly
+# These commented sections are for reference only:
+# optimizer: torch.optim.Adam with lr=0.000015, weight_decay=0
+# model: MossFormer2_SS_16K with parameters defined above
 
 # Comment: For scaled-down version (MossFormer2-S from Table 1):
 # num_mossformer_layer: 25
