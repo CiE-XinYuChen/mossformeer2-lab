@@ -13,6 +13,7 @@ import random
 import numpy as np
 from pathlib import Path
 from torch.utils.data import Dataset, DataLoader
+from torch.utils.data.distributed import DistributedSampler
 
 
 class SeparationDataset(Dataset):
@@ -230,12 +231,15 @@ def collate_fn(batch):
     }
 
 
-def create_dataloaders(config):
+def create_dataloaders(config, is_distributed=False, world_size=1, rank=0):
     """
     Create train, validation, and test dataloaders
 
     Args:
         config: Configuration dictionary or namespace
+        is_distributed: Whether to use distributed training
+        world_size: Total number of processes
+        rank: Current process rank
 
     Returns:
         train_loader, valid_loader, test_loader
@@ -250,10 +254,20 @@ def create_dataloaders(config):
         dynamic_mixing=config.get('use_dynamic_mixing', False)
     )
 
+    train_sampler = None
+    shuffle = True
+    if is_distributed:
+        train_sampler = DistributedSampler(
+            train_dataset, num_replicas=world_size,
+            rank=rank, shuffle=True, drop_last=True
+        )
+        shuffle = False
+
     train_loader = DataLoader(
         train_dataset,
         batch_size=config['batch_size'],
-        shuffle=True,
+        shuffle=shuffle,
+        sampler=train_sampler,
         num_workers=config.get('num_workers', 4),
         collate_fn=collate_fn,
         drop_last=True,
@@ -267,13 +281,21 @@ def create_dataloaders(config):
         sample_rate=config['sample_rate'],
         segment_length=config['segment_length'],
         num_spks=config['num_spks'],
-        dynamic_mixing=False  # No dynamic mixing for validation
+        dynamic_mixing=False
     )
+
+    valid_sampler = None
+    if is_distributed:
+        valid_sampler = DistributedSampler(
+            valid_dataset, num_replicas=world_size,
+            rank=rank, shuffle=False
+        )
 
     valid_loader = DataLoader(
         valid_dataset,
         batch_size=1,
         shuffle=False,
+        sampler=valid_sampler,
         num_workers=config.get('num_workers', 4),
         collate_fn=collate_fn,
         pin_memory=True
@@ -289,10 +311,18 @@ def create_dataloaders(config):
         dynamic_mixing=False
     )
 
+    test_sampler = None
+    if is_distributed:
+        test_sampler = DistributedSampler(
+            test_dataset, num_replicas=world_size,
+            rank=rank, shuffle=False
+        )
+
     test_loader = DataLoader(
         test_dataset,
         batch_size=1,
         shuffle=False,
+        sampler=test_sampler,
         num_workers=config.get('num_workers', 4),
         collate_fn=collate_fn,
         pin_memory=True
@@ -463,19 +493,15 @@ class CSVSeparationDataset(Dataset):
         }
 
 
-def create_csv_dataloaders(config):
+def create_csv_dataloaders(config, is_distributed=False, world_size=1, rank=0):
     """
     Create train, validation, and test dataloaders for CSV-based dataset
 
     Args:
-        config: Configuration dictionary with:
-            - data_root: Root directory of prepared dataset
-            - csv_file: CSV metadata file
-            - sample_rate: Sampling rate
-            - segment_length: Segment length in seconds
-            - num_spks: Number of speakers
-            - batch_size: Batch size
-            - num_workers: Number of data loading workers
+        config: Configuration dictionary
+        is_distributed: Whether to use distributed training
+        world_size: Total number of processes
+        rank: Current process rank
 
     Returns:
         train_loader, valid_loader, test_loader
@@ -490,10 +516,20 @@ def create_csv_dataloaders(config):
         num_spks=config['num_spks']
     )
 
+    train_sampler = None
+    shuffle = True
+    if is_distributed:
+        train_sampler = DistributedSampler(
+            train_dataset, num_replicas=world_size,
+            rank=rank, shuffle=True, drop_last=True
+        )
+        shuffle = False
+
     train_loader = DataLoader(
         train_dataset,
         batch_size=config['batch_size'],
-        shuffle=True,
+        shuffle=shuffle,
+        sampler=train_sampler,
         num_workers=config.get('num_workers', 4),
         collate_fn=collate_fn,
         drop_last=True,
@@ -510,10 +546,18 @@ def create_csv_dataloaders(config):
         num_spks=config['num_spks']
     )
 
+    valid_sampler = None
+    if is_distributed:
+        valid_sampler = DistributedSampler(
+            valid_dataset, num_replicas=world_size,
+            rank=rank, shuffle=False
+        )
+
     valid_loader = DataLoader(
         valid_dataset,
         batch_size=1,
         shuffle=False,
+        sampler=valid_sampler,
         num_workers=config.get('num_workers', 4),
         collate_fn=collate_fn,
         pin_memory=True
@@ -529,10 +573,18 @@ def create_csv_dataloaders(config):
         num_spks=config['num_spks']
     )
 
+    test_sampler = None
+    if is_distributed:
+        test_sampler = DistributedSampler(
+            test_dataset, num_replicas=world_size,
+            rank=rank, shuffle=False
+        )
+
     test_loader = DataLoader(
         test_dataset,
         batch_size=1,
         shuffle=False,
+        sampler=test_sampler,
         num_workers=config.get('num_workers', 4),
         collate_fn=collate_fn,
         pin_memory=True

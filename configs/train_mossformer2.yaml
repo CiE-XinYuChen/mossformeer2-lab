@@ -101,6 +101,11 @@ model: !new:mossformer2.MossFormer2_SS_16K
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
+# Distributed training
+# Use with: torchrun --nproc_per_node=NUM_GPUS train.py --config configs/train_mossformer2.yaml --distributed
+distributed:
+  backend: nccl  # nccl for GPU, gloo for CPU
+
 # Comment: For scaled-down version (MossFormer2-S from Table 1):
 # num_mossformer_layer: 25
 # encoder_embedding_dim: 384
